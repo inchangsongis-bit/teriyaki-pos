@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+greenlet
+aiosqlite
+pydantic-settings
+python-dotenv
+stripe
+python-escpos
