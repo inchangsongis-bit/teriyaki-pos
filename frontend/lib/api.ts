@@ -21,6 +21,8 @@ export type MenuItem = {
   price_cents: number;
   category: string;
   image_url: string | null;
+  is_available: boolean;
+  unavailable_reason: string | null;
   modifier_groups: ModifierGroup[];
 };
 
@@ -71,4 +73,10 @@ export const api = {
 
   createPaymentIntent: (orderId: number) =>
     request<{ client_secret: string }>(`/api/orders/${orderId}/payment-intent`, { method: "POST" }),
+
+  setMenuItemAvailability: (itemId: number, is_available: boolean, reason?: string) =>
+    request<MenuItem>(`/api/menu/${itemId}/availability`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_available, reason }),
+    }),
 };

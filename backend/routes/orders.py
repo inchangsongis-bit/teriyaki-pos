@@ -69,6 +69,11 @@ async def create_order(req: CreateOrderRequest, db: AsyncSession = Depends(get_d
     if missing:
         raise HTTPException(status_code=404, detail=f"Unknown menu item(s): {sorted(missing)}")
 
+    unavailable = [m for m in menu_items_by_id.values() if not m.is_available]
+    if unavailable:
+        names = ", ".join(m.name for m in unavailable)
+        raise HTTPException(status_code=409, detail=f"No longer available: {names}")
+
     all_modifier_ids = {mid for item in req.items for mid in item.modifier_ids}
     modifiers_by_id: dict[int, Modifier] = {}
     if all_modifier_ids:

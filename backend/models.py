@@ -25,6 +25,8 @@ class MenuItem(Base):
     category = Column(String(50), nullable=False, index=True)
     image_url = Column(String(500))
     is_active = Column(Boolean, nullable=False, default=True)
+    is_available = Column(Boolean, nullable=False, default=True)
+    unavailable_reason = Column(String(100))
 
     modifier_groups = relationship(
         "ModifierGroup", secondary=menu_item_modifier_groups, back_populates="menu_items"

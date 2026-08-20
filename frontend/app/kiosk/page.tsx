@@ -215,14 +215,20 @@ export default function KioskPage() {
               {items.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => openItem(item)}
-                  className="flex flex-col items-start rounded-xl border border-black/[.08] p-4 text-left hover:bg-black/[.03] dark:border-white/[.145] dark:hover:bg-white/[.05]"
+                  onClick={() => item.is_available && openItem(item)}
+                  disabled={!item.is_available}
+                  className="flex flex-col items-start rounded-xl border border-black/[.08] p-4 text-left hover:bg-black/[.03] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent dark:border-white/[.145] dark:hover:bg-white/[.05]"
                 >
                   <span className="font-medium">{item.name}</span>
                   {item.description && (
                     <span className="mt-1 text-sm text-zinc-500">{item.description}</span>
                   )}
                   <span className="mt-2 font-semibold">{formatPrice(item.price_cents)}</span>
+                  {!item.is_available && (
+                    <span className="mt-1 text-sm font-medium text-red-600">
+                      {item.unavailable_reason || "Sold Out"}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

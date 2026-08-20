@@ -17,6 +17,12 @@ export default function Home() {
         >
           Kitchen display
         </Link>
+        <Link
+          href="/staff/menu"
+          className="rounded-full border border-black/[.08] px-8 py-3 text-lg font-medium dark:border-white/[.145]"
+        >
+          Staff: Menu
+        </Link>
       </div>
     </div>
   );
