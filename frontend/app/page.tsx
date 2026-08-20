@@ -23,6 +23,12 @@ export default function Home() {
         >
           Staff: Menu
         </Link>
+        <Link
+          href="/staff/counter"
+          className="rounded-full border border-black/[.08] px-8 py-3 text-lg font-medium dark:border-white/[.145]"
+        >
+          Staff: Front Counter
+        </Link>
       </div>
     </div>
   );

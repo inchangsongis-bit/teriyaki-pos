@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, type Order } from "@/lib/api";
+import StaffAlerts from "@/components/StaffAlerts";
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -46,6 +47,7 @@ export default function KitchenPage() {
   return (
     <div className="flex-1 bg-zinc-50 p-6 dark:bg-black">
       <h1 className="mb-6 text-2xl font-semibold">Kitchen Queue</h1>
+      <StaffAlerts />
       {orders.length === 0 && <p className="text-zinc-500">No orders in the queue.</p>}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {orders.map((order) => (

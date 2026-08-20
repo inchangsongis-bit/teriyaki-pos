@@ -7,6 +7,19 @@ from database import Base
 # Order lifecycle: PENDING -> PAID -> PRINTED -> COMPLETED (or CANCELLED at any point before PAID)
 ORDER_STATUSES = ("PENDING", "PAID", "PRINTED", "COMPLETED", "CANCELLED")
 
+ALERT_STATUSES = ("OPEN", "RESOLVED")
+
+
+class StaffAlert(Base):
+    __tablename__ = "staff_alerts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    location = Column(String(50), nullable=False, default="Kiosk")
+    message = Column(String(280))
+    status = Column(String(20), nullable=False, default="OPEN", index=True)
+    created_at = Column(DateTime, server_default=func.now())
+    resolved_at = Column(DateTime)
+
 menu_item_modifier_groups = Table(
     "menu_item_modifier_groups",
     Base.metadata,

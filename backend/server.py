@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db
-from routes import menu, orders, payments
+from routes import menu, orders, payments, alerts
 
 
 @asynccontextmanager
@@ -35,6 +35,7 @@ app.add_middleware(
 app.include_router(menu.router)
 app.include_router(orders.router)
 app.include_router(payments.router)
+app.include_router(alerts.router)
 
 
 @app.get("/")
@@ -52,6 +53,9 @@ async def root():
             "POST  /api/payments/connection-token",
             "POST  /api/orders/{id}/payment-intent",
             "POST  /api/payments/webhook",
+            "POST  /api/alerts/",
+            "GET   /api/alerts/",
+            "PATCH /api/alerts/{id}",
         ],
     }
 

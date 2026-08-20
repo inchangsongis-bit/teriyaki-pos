@@ -31,6 +31,19 @@ export default function KioskPage() {
   const [modalSelectedIds, setModalSelectedIds] = useState<Set<number>>(new Set());
   const [modalQty, setModalQty] = useState(1);
   const [modalNotes, setModalNotes] = useState("");
+  const [callStaffState, setCallStaffState] = useState<"idle" | "sending" | "sent">("idle");
+
+  async function callStaff() {
+    if (callStaffState !== "idle") return;
+    setCallStaffState("sending");
+    try {
+      await api.callStaff("Kiosk");
+      setCallStaffState("sent");
+      setTimeout(() => setCallStaffState("idle"), 15000);
+    } catch {
+      setCallStaffState("idle");
+    }
+  }
 
   useEffect(() => {
     api.getMenu().then((res) => setMenu(res.items));
@@ -207,6 +220,13 @@ export default function KioskPage() {
 
   return (
     <div className="flex flex-1 flex-col md:flex-row">
+      <button
+        onClick={callStaff}
+        disabled={callStaffState !== "idle"}
+        className="fixed bottom-4 right-4 z-40 rounded-full bg-red-600 px-5 py-3 text-sm font-medium text-white shadow-lg disabled:opacity-70"
+      >
+        {callStaffState === "sent" ? "Staff notified ✓" : callStaffState === "sending" ? "Calling…" : "Call staff"}
+      </button>
       <div className="flex-1 overflow-y-auto p-6">
         {categories.map(([category, items]) => (
           <div key={category} className="mb-8">

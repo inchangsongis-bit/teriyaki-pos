@@ -44,6 +44,15 @@ export type Order = {
 
 export type CartLine = { menu_item_id: number; qty: number; notes?: string; modifier_ids?: number[] };
 
+export type StaffAlert = {
+  id: number;
+  location: string;
+  message: string | null;
+  status: "OPEN" | "RESOLVED";
+  created_at: string;
+  resolved_at: string | null;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -79,4 +88,13 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ is_available, reason }),
     }),
+
+  callStaff: (location: string, message?: string) =>
+    request<StaffAlert>("/api/alerts/", { method: "POST", body: JSON.stringify({ location, message }) }),
+
+  getAlerts: (status?: string) =>
+    request<{ alerts: StaffAlert[] }>(`/api/alerts/${status ? `?status=${status}` : ""}`),
+
+  resolveAlert: (alertId: number) =>
+    request<StaffAlert>(`/api/alerts/${alertId}`, { method: "PATCH", body: JSON.stringify({ status: "RESOLVED" }) }),
 };
