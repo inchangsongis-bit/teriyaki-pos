@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from config import get_settings
 from database import get_db
-from models import Order
+from models import Order, OrderItem
 from service import stripe_terminal, printer
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
         intent = event["data"]["object"]
         result = await db.execute(
             select(Order)
-            .options(selectinload(Order.items))
+            .options(selectinload(Order.items).selectinload(OrderItem.modifiers))
             .where(Order.stripe_payment_intent_id == intent["id"])
         )
         order = result.scalar_one_or_none()

@@ -3,7 +3,7 @@
 import asyncio
 
 from database import async_session, init_db
-from models import MenuItem
+from models import MenuItem, ModifierGroup, Modifier
 
 MENU = [
     ("Chicken Teriyaki Bowl", "Grilled chicken thigh, house teriyaki sauce, steamed rice", 1195, "Bowls"),
@@ -19,14 +19,37 @@ MENU = [
     ("Green Tea", "Hot or iced", 250, "Drinks"),
 ]
 
+# Matches the real restaurant's Clover "UPGRADE" modifier group: multi-select,
+# no minimum, additive pricing. Applied to entrees (Bowls) only, same as the
+# real site leaves sides/drinks with no modifier group at all.
+UPGRADE_MODIFIERS = [
+    ("Brown Rice", 200),
+    ("Fried Rice", 250),
+    ("Stir Fried Veggies", 300),
+    ("Noodles", 200),
+    ("All Rice", 0),
+    ("All Salad", 0),
+    ("Spicy", 200),
+]
+
 
 async def seed():
     await init_db()
     async with async_session() as db:
+        upgrade_group = ModifierGroup(name="Upgrade", min_select=0, max_select=None)
+        upgrade_group.modifiers = [
+            Modifier(name=name, price_cents=price_cents) for name, price_cents in UPGRADE_MODIFIERS
+        ]
+        db.add(upgrade_group)
+
         for name, description, price_cents, category in MENU:
-            db.add(MenuItem(name=name, description=description, price_cents=price_cents, category=category))
+            item = MenuItem(name=name, description=description, price_cents=price_cents, category=category)
+            if category == "Bowls":
+                item.modifier_groups = [upgrade_group]
+            db.add(item)
+
         await db.commit()
-    print(f"Seeded {len(MENU)} menu items.")
+    print(f"Seeded {len(MENU)} menu items and 1 modifier group.")
 
 
 if __name__ == "__main__":

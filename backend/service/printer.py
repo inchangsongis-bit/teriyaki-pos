@@ -30,6 +30,8 @@ def print_ticket(order) -> None:
         printer.text("-" * 32 + "\n")
         for item in order.items:
             printer.text(f"{item.qty}x {item.name_at_order}\n")
+            for modifier in item.modifiers:
+                printer.text(f"   + {modifier.name_at_order}\n")
             if item.notes:
                 printer.text(f"   note: {item.notes}\n")
         printer.text("-" * 32 + "\n")

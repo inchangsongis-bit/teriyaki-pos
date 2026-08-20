@@ -2,13 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { loadStripeTerminal } from "@stripe/terminal-js/pure";
-import { api, type MenuItem, type Order } from "@/lib/api";
+import { api, type MenuItem, type Modifier, type Order } from "@/lib/api";
 
-type CartEntry = { item: MenuItem; qty: number };
+type CartEntry = {
+  lineId: string;
+  item: MenuItem;
+  qty: number;
+  selectedModifiers: Modifier[];
+  notes?: string;
+};
 type Phase = "menu" | "connecting" | "processing" | "success" | "error";
 
 function formatPrice(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
+}
+
+function unitPrice(item: MenuItem, modifiers: Modifier[]) {
+  return item.price_cents + modifiers.reduce((sum, m) => sum + m.price_cents, 0);
 }
 
 export default function KioskPage() {
@@ -17,6 +27,10 @@ export default function KioskPage() {
   const [phase, setPhase] = useState<Phase>("menu");
   const [errorMessage, setErrorMessage] = useState("");
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
+  const [modalItem, setModalItem] = useState<MenuItem | null>(null);
+  const [modalSelectedIds, setModalSelectedIds] = useState<Set<number>>(new Set());
+  const [modalQty, setModalQty] = useState(1);
+  const [modalNotes, setModalNotes] = useState("");
 
   useEffect(() => {
     api.getMenu().then((res) => setMenu(res.items));
@@ -31,22 +45,57 @@ export default function KioskPage() {
     return [...map.entries()];
   }, [menu]);
 
-  const total = cart.reduce((sum, entry) => sum + entry.item.price_cents * entry.qty, 0);
+  const total = cart.reduce(
+    (sum, entry) => sum + unitPrice(entry.item, entry.selectedModifiers) * entry.qty,
+    0
+  );
 
-  function addToCart(item: MenuItem) {
-    setCart((prev) => {
-      const existing = prev.find((e) => e.item.id === item.id);
-      if (existing) {
-        return prev.map((e) => (e.item.id === item.id ? { ...e, qty: e.qty + 1 } : e));
+  function openItem(item: MenuItem) {
+    setModalItem(item);
+    setModalSelectedIds(new Set());
+    setModalQty(1);
+    setModalNotes("");
+  }
+
+  function toggleModifier(modifier: Modifier, groupMax: number | null, groupModifierIds: number[]) {
+    setModalSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(modifier.id)) {
+        next.delete(modifier.id);
+        return next;
       }
-      return [...prev, { item, qty: 1 }];
+      if (groupMax !== null) {
+        const selectedInGroup = groupModifierIds.filter((id) => next.has(id)).length;
+        if (selectedInGroup >= groupMax) return prev; // at cap, ignore
+      }
+      next.add(modifier.id);
+      return next;
     });
   }
 
-  function changeQty(itemId: number, delta: number) {
+  function addModalItemToCart() {
+    if (!modalItem) return;
+    const selectedModifiers = modalItem.modifier_groups
+      .flatMap((g) => g.modifiers)
+      .filter((m) => modalSelectedIds.has(m.id));
+
+    setCart((prev) => [
+      ...prev,
+      {
+        lineId: crypto.randomUUID(),
+        item: modalItem,
+        qty: modalQty,
+        selectedModifiers,
+        notes: modalNotes.trim() || undefined,
+      },
+    ]);
+    setModalItem(null);
+  }
+
+  function changeLineQty(lineId: string, delta: number) {
     setCart((prev) =>
       prev
-        .map((e) => (e.item.id === itemId ? { ...e, qty: e.qty + delta } : e))
+        .map((e) => (e.lineId === lineId ? { ...e, qty: e.qty + delta } : e))
         .filter((e) => e.qty > 0)
     );
   }
@@ -63,7 +112,12 @@ export default function KioskPage() {
     setErrorMessage("");
     try {
       const order = await api.createOrder(
-        cart.map((e) => ({ menu_item_id: e.item.id, qty: e.qty }))
+        cart.map((e) => ({
+          menu_item_id: e.item.id,
+          qty: e.qty,
+          modifier_ids: e.selectedModifiers.map((m) => m.id),
+          notes: e.notes,
+        }))
       );
 
       const StripeTerminal = await loadStripeTerminal();
@@ -144,6 +198,13 @@ export default function KioskPage() {
     );
   }
 
+  const modalUnitPrice = modalItem
+    ? unitPrice(
+        modalItem,
+        modalItem.modifier_groups.flatMap((g) => g.modifiers).filter((m) => modalSelectedIds.has(m.id))
+      )
+    : 0;
+
   return (
     <div className="flex flex-1 flex-col md:flex-row">
       <div className="flex-1 overflow-y-auto p-6">
@@ -154,7 +215,7 @@ export default function KioskPage() {
               {items.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => addToCart(item)}
+                  onClick={() => openItem(item)}
                   className="flex flex-col items-start rounded-xl border border-black/[.08] p-4 text-left hover:bg-black/[.03] dark:border-white/[.145] dark:hover:bg-white/[.05]"
                 >
                   <span className="font-medium">{item.name}</span>
@@ -174,21 +235,29 @@ export default function KioskPage() {
         <div className="flex-1 overflow-y-auto">
           {cart.length === 0 && <p className="text-zinc-500">Tap items to add them</p>}
           {cart.map((entry) => (
-            <div key={entry.item.id} className="mb-3 flex items-center justify-between">
+            <div key={entry.lineId} className="mb-3 flex items-center justify-between">
               <div>
                 <p className="font-medium">{entry.item.name}</p>
-                <p className="text-sm text-zinc-500">{formatPrice(entry.item.price_cents)} each</p>
+                {entry.selectedModifiers.map((m) => (
+                  <p key={m.id} className="text-sm text-zinc-500">
+                    + {m.name}
+                    {m.price_cents > 0 ? ` (${formatPrice(m.price_cents)})` : ""}
+                  </p>
+                ))}
+                <p className="text-sm text-zinc-500">
+                  {formatPrice(unitPrice(entry.item, entry.selectedModifiers))} each
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => changeQty(entry.item.id, -1)}
+                  onClick={() => changeLineQty(entry.lineId, -1)}
                   className="h-8 w-8 rounded-full border border-black/[.08] dark:border-white/[.145]"
                 >
                   −
                 </button>
                 <span className="w-6 text-center">{entry.qty}</span>
                 <button
-                  onClick={() => changeQty(entry.item.id, 1)}
+                  onClick={() => changeLineQty(entry.lineId, 1)}
                   className="h-8 w-8 rounded-full border border-black/[.08] dark:border-white/[.145]"
                 >
                   +
@@ -211,6 +280,86 @@ export default function KioskPage() {
           </button>
         </div>
       </div>
+
+      {modalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-background p-6">
+            <h2 className="text-xl font-semibold">{modalItem.name}</h2>
+            {modalItem.description && (
+              <p className="mt-1 text-sm text-zinc-500">{modalItem.description}</p>
+            )}
+
+            {modalItem.modifier_groups.map((group) => {
+              const groupModifierIds = group.modifiers.map((m) => m.id);
+              return (
+                <div key={group.id} className="mt-4">
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                    {group.name}
+                  </p>
+                  {group.modifiers.map((m) => (
+                    <label key={m.id} className="mb-1 flex items-center justify-between py-1">
+                      <span className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={modalSelectedIds.has(m.id)}
+                          onChange={() => toggleModifier(m, group.max_select, groupModifierIds)}
+                        />
+                        {m.name}
+                      </span>
+                      <span className="text-sm text-zinc-500">
+                        {m.price_cents > 0 ? `+${formatPrice(m.price_cents)}` : "+$0.00"}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              );
+            })}
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-semibold uppercase tracking-wide text-zinc-500">
+                Special instructions
+              </label>
+              <textarea
+                value={modalNotes}
+                onChange={(e) => setModalNotes(e.target.value)}
+                className="w-full rounded-lg border border-black/[.08] p-2 text-sm dark:border-white/[.145]"
+                rows={2}
+              />
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-4">
+              <button
+                onClick={() => setModalQty((q) => Math.max(1, q - 1))}
+                className="h-9 w-9 rounded-full border border-black/[.08] dark:border-white/[.145]"
+              >
+                −
+              </button>
+              <span className="w-6 text-center">{modalQty}</span>
+              <button
+                onClick={() => setModalQty((q) => q + 1)}
+                className="h-9 w-9 rounded-full border border-black/[.08] dark:border-white/[.145]"
+              >
+                +
+              </button>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setModalItem(null)}
+                className="rounded-full border border-black/[.08] px-6 py-3 font-medium dark:border-white/[.145]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={addModalItemToCart}
+                className="flex-1 rounded-full bg-foreground py-3 font-medium text-background"
+              >
+                Add to order — {formatPrice(modalUnitPrice * modalQty)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

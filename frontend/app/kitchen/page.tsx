@@ -63,6 +63,9 @@ export default function KitchenPage() {
               {order.items.map((item, i) => (
                 <li key={i}>
                   <span className="font-medium">{item.qty}x</span> {item.name}
+                  {item.modifiers.map((m, j) => (
+                    <div key={j} className="pl-4 text-sm text-zinc-500">+ {m.name}</div>
+                  ))}
                   {item.notes && <div className="text-sm text-zinc-500">note: {item.notes}</div>}
                 </li>
               ))}
